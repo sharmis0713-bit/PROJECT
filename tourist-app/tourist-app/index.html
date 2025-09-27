@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tourist Safety App - Emergency Response System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Tourist Safety Emergency System</h1>
+            <p>Your safety is our priority - 24/7 Emergency Response</p>
+        </div>
+
+        <div class="map-section">
+            <h2>📍 Live Location Tracking</h2>
+            <div id="map"></div>
+            <div class="location-status" id="locationStatus">
+                <p id="locationText">Click below to get your current location</p>
+                <p id="locationCoordinates"></p>
+                <p id="locationAccuracy"></p>
+            </div>
+            <button onclick="safetyApp.getLocation()" class="sos-button location-btn">
+                🔄 Update My Location
+            </button>
+            
+            <div class="permission-help" id="permissionHelp">
+                <h4>🔧 Location Access Help</h4>
+                <p>To enable location access:</p>
+                <ul>
+                    <li><strong>Chrome/Edge:</strong> Click the lock icon → Site settings → Allow Location</li>
+                    <li><strong>Firefox:</strong> Click the lock icon → More Information → Permissions</li>
+                    <li><strong>Safari:</strong> Preferences → Websites → Location → Allow</li>
+                    <li><strong>Mobile:</strong> Settings → Location Services → Allow</li>
+                </ul>
+                <button class="test-location-btn" onclick="safetyApp.testLocation()">Test Location Again</button>
+            </div>
+        </div>
+
+        <div class="sos-panel">
+            <h2 class="sos-title">🚨 EMERGENCY SOS</h2>
+            <button class="sos-button voice-sos" onclick="safetyApp.sendSOS('VOICE_EMERGENCY')">
+                🎤 VOICE SOS COMMAND
+            </button>
+            <button class="sos-button online-sos" onclick="safetyApp.sendSOS('ONLINE_EMERGENCY')">
+                🌐 ONLINE EMERGENCY MODE
+            </button>
+            <button class="sos-button medical-sos" onclick="safetyApp.sendSOS('MEDICAL_ASSISTANCE')">
+                🏥 MEDICAL ASSISTANCE
+            </button>
+            <button class="sos-button police-sos" onclick="safetyApp.sendSOS('POLICE_ASSISTANCE')">
+                👮 POLICE ASSISTANCE
+            </button>
+            
+            <div class="connection-status">
+                <p id="connectionStatus"></p>
+                <p id="sosWarning">⚠️ Please enable location access before sending SOS</p>
+            </div>
+        </div>
+
+        <div class="status-panel">
+            <h2>📊 Safety Status</h2>
+            <div class="status-grid">
+                <div class="status-card">
+                    <div class="status-value" id="safetyScore">85</div>
+                    <div class="status-label">AI Safety Score</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-value risk-level">LOW</div>
+                    <div class="status-label">Risk Level</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-value" id="responseTime">2.3s</div>
+                    <div class="status-label">Avg Response Time</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-value" id="activeResponders">12</div>
+                    <div class="status-label">Active Responders</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="history-panel">
+            <h2>📋 Recent Emergency Alerts</h2>
+            <div id="emergencyHistory">
+                <div class="emergency-item">No recent emergencies. Your safety status is monitored 24/7.</div>
+            </div>
+        </div>
+
+        <!-- Emergency Modal -->
+        <div id="emergencyModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>🚨 EMERGENCY ALERT SENT!</h2>
+                <div id="modalContent"></div>
+                <button class="sos-button" onclick="safetyApp.closeModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
