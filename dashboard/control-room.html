@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Control Room</title>
+    <style>
+        :root {
+            --primary: #1a237e;
+            --secondary: #303f9f;
+            --danger: #d32f2f;
+            --success: #388e3c;
+            --warning: #f57c00;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f1419;
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .dashboard {
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: #1e2a3a;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s ease;
+            border-left: 5px solid var(--success);
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .metric-card.danger { border-left-color: var(--danger); }
+        .metric-card.warning { border-left-color: var(--warning); }
+        
+        .metric-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .alerts-section {
+            background: #1e2a3a;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .alert-item {
+            background: #2a3a4a;
+            margin: 15px 0;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid var(--danger);
+            transition: all 0.3s ease;
+        }
+        
+        .alert-item.assigned {
+            border-left-color: var(--success);
+            background: #1c2e3a;
+        }
+        
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .alert-id {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        
+        .alert-time {
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        .alert-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .detail-item {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .map-container {
+            height: 400px;
+            background: #2a3a4a;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .map-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 10;
+        }
+        
+        .alert-marker {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: var(--danger);
+            border-radius: 50%;
+            border: 3px solid white;
+            transform: translate(-50%, -50%);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        .stats-chart {
+            background: #1e2a3a;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-placeholder {
+            height: 200px;
+            background: #2a3a4a;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 1.2em;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--success);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            z-index: 1000;
+            animation: slideInRight 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        @keyframes slideInRight {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🚨 SAFETY CONTROL ROOM</h1>
+            <p>Real-time Emergency Response Monitoring System</p>
+        </div>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div>🔄 ACTIVE ALERTS</div>
+                <div class="metric-value" id="activeAlerts">0</div>
+                <div>Real-time monitoring</div>
+            </div>
+            <div class="metric-card">
+                <div>👮 RESPONDERS ONLINE</div>
+                <div class="metric-value" id="respondersOnline">8</div>
+                <div>Verified professionals</div>
+            </div>
+            <div class="metric-card warning">
+                <div>⏱️ AVG RESPONSE TIME</div>
+                <div class="metric-value" id="avgResponseTime">2.3m</div>
+                <div>Target: < 3 minutes</div>
+            </div>
+            <div class="metric-card success">
+                <div>✅ RESOLVED TODAY</div>
+                <div class="metric-value" id="resolvedToday">12</div>
+                <div>Successful interventions</div>
+            </div>
+        </div>
+        
+        <div class="alerts-section">
+            <h2 style="margin-bottom: 20px;">📋 LIVE SOS ALERTS</h2>
+            <div id="alertsList">
+                <div style="text-align: center; padding: 40px; color: #888;">
+                    📊 No active alerts - System monitoring...
+                </div>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <div class="map-overlay">
+                <h3>📍 LIVE INCIDENT MAP</h3>
+                <p>Real-time alert locations</p>
+            </div>
+            <div id="mapMarkers"></div>
+        </div>
+        
+        <div class="stats-chart">
+            <h2 style="margin-bottom: 20px;">📈 RESPONSE STATISTICS</h2>
+            <div class="chart-placeholder">
+                📊 Response Time Analytics Chart<br>
+                <small>(Would show historical data and trends)</small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        async function updateDashboard() {
+            try {
+                const response = await fetch(`${API_BASE}/alerts`);
+                const data = await response.json();
+                
+                updateMetrics(data.alerts);
+                updateAlertsList(data.alerts);
+                updateMap(data.alerts);
+                
+            } catch (error) {
+                console.error('Dashboard update error:', error);
+                showNotification('⚠️ Cannot connect to backend server', 'error');
+            }
+        }
+        
+        function updateMetrics(alerts) {
+            const activeAlerts = alerts.filter(a => a.status === 'pending').length;
+            const assignedAlerts = alerts.filter(a => a.status === 'assigned').length;
+            
+            document.getElementById('activeAlerts').textContent = activeAlerts;
+            document.getElementById('respondersOnline').textContent = Math.max(3, 5 + assignedAlerts);
+        }
+        
+        function updateAlertsList(alerts) {
+            const container = document.getElementById('alertsList');
+            
+            if (alerts.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #888;">
+                        📊 No active alerts - System monitoring...
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert-item ${alert.status === 'assigned' ? 'assigned' : ''}">
+                    <div class="alert-header">
+                        <div class="alert-id">🚨 Alert #${alert.id}</div>
+                        <div class="alert-time">${new Date(alert.timestamp).toLocaleString()}</div>
+                    </div>
+                    
+                    <div class="alert-details">
+                        <div class="detail-item">
+                            <strong>👤 Tourist ID:</strong><br>${alert.tourist_id}
+                        </div>
+                        <div class="detail-item">
+                            <strong>📍 Location:</strong><br>${alert.location}
+                        </div>
+                        <div class="detail-item">
+                            <strong>📊 Status:</strong><br>
+                            <span style="color: ${alert.status === 'pending' ? '#ff6b6b' : '#4CAF50'};">
+                                ${alert.status.toUpperCase()}
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <strong>🆔 Responder:</strong><br>
+                            ${alert.responder_id || 'Not assigned'}
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        ${alert.status === 'pending' ? 
+                            `<button class="btn btn-primary" onclick="assignResponder(${alert.id})">
+                                👮 Assign Responder
+                            </button>` : 
+                            `<button class="btn btn-success" onclick="resolveAlert(${alert.id})">
+                                ✅ Mark Resolved
+                            </button>`
+                        }
+                        <button class="btn btn-danger" onclick="escalateAlert(${alert.id})">
+                            🚨 Escalate
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateMap(alerts) {
+            const container = document.getElementById('mapMarkers');
+            container.innerHTML = '';
+            
+            alerts.forEach(alert => {
+                const coords = alert.location.split(',').map(coord => parseFloat(coord.trim()));
+                if (coords.length === 2) {
+                    const marker = document.createElement('div');
+                    marker.className = 'alert-marker';
+                    marker.style.left = `${30 + (coords[1] + 74.02) * 200}%`;
+                    marker.style.top = `${30 + (40.75 - coords[0]) * 200}%`;
+                    marker.title = `Alert #${alert.id}`;
+                    container.appendChild(marker);
+                }
+            });
+        }
+        
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.style.background = type === 'error' ? '#d32f2f' : '#388e3c';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // Simulated functions for demo
+        function assignResponder(alertId) {
+            showNotification(`✅ Responder assigned to Alert #${alertId}`);
+        }
+        
+        function resolveAlert(alertId) {
+            showNotification(`✅ Alert #${alertId} marked as resolved`);
+        }
+        
+        function escalateAlert(alertId) {
+            showNotification(`🚨 Alert #${alertId} escalated to authorities`);
+        }
+        
+        // Update every 3 seconds
+        setInterval(updateDashboard, 3000);
+        updateDashboard(); // Initial load
+        
+        // Simulate real-time updates
+        setInterval(() => {
+            if (Math.random() > 0.7) {
+                const responses = ['Response team dispatched', 'Alert being processed', 'Backup requested'];
+                showNotification(`📡 ${responses[Math.floor(Math.random() * responses.length)]}`);
+            }
+        }, 8000);
+    </script>
+</body>
+</html>

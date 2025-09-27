@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Response Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #0f1419; color: white; min-height: 100vh; }
+        
+        .dashboard { display: grid; grid-template-columns: 350px 1fr 350px; height: 100vh; }
+        
+        .sidebar { background: #1a1f2e; padding: 20px; border-right: 1px solid #2d3748; overflow-y: auto; }
+        .main-content { display: grid; grid-template-rows: auto 1fr; }
+        .emergency-details { background: #1a1f2e; padding: 20px; border-left: 1px solid #2d3748; }
+        
+        .stat-card { background: #2d3748; padding: 15px; border-radius: 10px; text-align: center; margin: 10px 0; }
+        .emergency-card { background: #2d3748; padding: 15px; margin: 10px 0; border-radius: 10px; cursor: pointer; }
+        .emergency-card:hover { background: #3a4558; }
+        
+        #responseMap { height: 100%; border-radius: 15px; }
+        
+        .connection-status { position: fixed; top: 10px; right: 10px; background: #28a745; padding: 8px 15px; border-radius: 20px; z-index: 1000; }
+        .notification { position: fixed; top: 20px; right: 20px; background: #ff4444; padding: 15px 20px; border-radius: 10px; z-index: 1000; animation: slideIn 0.5s ease; }
+        
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">🟢 Connected</div>
+    
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="responder-info">
+                <h3>🚨 Emergency Response</h3>
+                <p>Control Room - Live Monitoring</p>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div id="totalTourists">0</div>
+                    <div>Active Tourists</div>
+                </div>
+                <div class="stat-card">
+                    <div id="activeEmergencies">0</div>
+                    <div>Active Emergencies</div>
+                </div>
+            </div>
+            
+            <h4>👥 Active Tourists</h4>
+            <div id="touristList"></div>
+            
+            <h4>🚨 Recent Emergencies</h4>
+            <div id="emergencyList"></div>
+        </div>
+        
+        <div class="main-content">
+            <div class="header">
+                <h1>📍 Live Tourist Tracking</h1>
+                <div>Last update: <span id="lastUpdated">Just now</span></div>
+            </div>
+            <div class="map-container">
+                <div id="responseMap"></div>
+            </div>
+        </div>
+        
+        <div class="emergency-details">
+            <h3>Emergency Details</h3>
+            <div id="detailsContent">
+                <p>Select a tourist or emergency to view details</p>
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-success" onclick="assignToMe()">✅ Assign to Me</button>
+                <button class="btn btn-primary" onclick="navigateToLocation()">🧭 Navigate</button>
+                <button class="btn btn-danger" onclick="resolveEmergency()">✅ Resolve</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map;
+        let tourists = {};
+        let emergencies = [];
+        let selectedTourist = null;
+
+        // Initialize map
+        function initMap() {
+            map = L.map('responseMap').setView([40.7128, -74.0060], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        }
+
+        // Simulate receiving data from React Native app
+        function simulateDataReceiving() {
+            setInterval(() => {
+                // This would be replaced with actual API calls to your server
+                checkForNewData();
+            }, 3000);
+        }
+
+        function checkForNewData() {
+            // In real implementation, this would fetch from your server
+            // For demo, we'll simulate data
+            if (Math.random() > 0.7) {
+                receiveTouristUpdate({
+                    tourist_id: 'Tourist_' + Math.floor(1000 + Math.random() * 9000),
+                    location: `${(40.7128 + (Math.random() - 0.5) * 0.01).toFixed(6)}, ${(-74.0060 + (Math.random() - 0.5) * 0.01).toFixed(6)}`,
+                    timestamp: new Date().toLocaleString(),
+                    type: 'LOCATION_UPDATE'
+                });
+            }
+        }
+
+        function receiveTouristUpdate(data) {
+            if (!tourists[data.tourist_id]) {
+                // New tourist
+                tourists[data.tourist_id] = {
+                    id: data.tourist_id,
+                    locations: [],
+                    marker: null,
+                    lastUpdate: new Date()
+                };
+                showNotification(`👤 New tourist connected: ${data.tourist_id}`);
+            }
+            
+            // Update location
+            tourists[data.tourist_id].locations.push({
+                lat: parseFloat(data.location.split(',')[0]),
+                lng: parseFloat(data.location.split(',')[1]),
+                timestamp: data.timestamp
+            });
+            
+            tourists[data.tourist_id].lastUpdate = new Date();
+            
+            updateTouristMarker(data.tourist_id);
+            updateDashboard();
+        }
+
+        function updateTouristMarker(touristId) {
+            const tourist = tourists[touristId];
+            const latestLocation = tourist.locations[tourist.locations.length - 1];
+            
+            if (tourist.marker) {
+                // Update existing marker
+                tourist.marker.setLatLng([latestLocation.lat, latestLocation.lng]);
+            } else {
+                // Create new marker
+                tourist.marker = L.marker([latestLocation.lat, latestLocation.lng])
+                    .addTo(map)
+                    .bindPopup(`
+                        <strong>Tourist: ${touristId}</strong><br>
+                        Last update: ${latestLocation.timestamp}<br>
+                        <button onclick="selectTourist('${touristId}')">View Details</button>
+                    `);
+            }
+        }
+
+        function updateDashboard() {
+            // Update tourist list
+            document.getElementById('touristList').innerHTML = Object.values(tourists).map(tourist => `
+                <div class="emergency-card" onclick="selectTourist('${tourist.id}')">
+                    <strong>${tourist.id}</strong><br>
+                    <small>Last seen: ${tourist.lastUpdate.toLocaleTimeString()}</small><br>
+                    <small>Locations: ${tourist.locations.length}</small>
+                </div>
+            `).join('');
+            
+            document.getElementById('totalTourists').textContent = Object.keys(tourists).length;
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+        }
+
+        function selectTourist(touristId) {
+            selectedTourist = tourists[touristId];
+            const latestLocation = selectedTourist.locations[selectedTourist.locations.length - 1];
+            
+            document.getElementById('detailsContent').innerHTML = `
+                <h4>👤 ${touristId}</h4>
+                <p><strong>Status:</strong> Active</p>
+                <p><strong>Last Location:</strong> ${latestLocation.lat.toFixed(6)}, ${latestLocation.lng.toFixed(6)}</p>
+                <p><strong>Last Update:</strong> ${latestLocation.timestamp}</p>
+                <p><strong>Total Updates:</strong> ${selectedTourist.locations.length}</p>
+            `;
+            
+            // Center map on tourist
+            map.setView([latestLocation.lat, latestLocation.lng], 15);
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // Action functions
+        function assignToMe() {
+            if (selectedTourist) {
+                showNotification(`✅ Assigned ${selectedTourist.id} to you`);
+            }
+        }
+
+        function navigateToLocation() {
+            if (selectedTourist) {
+                const loc = selectedTourist.locations[selectedTourist.locations.length - 1];
+                window.open(`https://maps.google.com?q=${loc.lat},${loc.lng}`, '_blank');
+            }
+        }
+
+        // Initialize
+        initMap();
+        simulateDataReceiving();
+        updateDashboard();
+    </script>
+</body>
+</html>

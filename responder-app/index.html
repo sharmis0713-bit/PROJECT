@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Response Dashboard - Control Room</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #0f1419;
+            color: white;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 350px 1fr 350px;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: #1a1f2e;
+            padding: 20px;
+            border-right: 1px solid #2d3748;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .responder-info {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #2d3748;
+            margin-bottom: 20px;
+        }
+
+        .responder-avatar {
+            width: 80px;
+            height: 80px;
+            background: #007bff;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #2d3748;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-critical { color: #ff4444; }
+        .stat-warning { color: #ff9500; }
+        .stat-success { color: #28a745; }
+
+        .emergency-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .emergency-card {
+            background: #2d3748;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border-left: 4px solid #ff4444;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .emergency-card:hover {
+            transform: translateX(5px);
+            background: #3a4558;
+        }
+
+        .emergency-card.assigned {
+            border-left-color: #28a745;
+        }
+
+        .emergency-card.resolved {
+            border-left-color: #6c757d;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        .header {
+            background: #1a1f2e;
+            padding: 20px;
+            border-bottom: 1px solid #2d3748;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .map-container {
+            padding: 20px;
+        }
+
+        #responseMap {
+            height: 100%;
+            border-radius: 15px;
+        }
+
+        /* Emergency Details */
+        .emergency-details {
+            background: #1a1f2e;
+            padding: 20px;
+            border-left: 1px solid #2d3748;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .details-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .action-buttons {
+            display: grid;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ff9500; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+
+        .btn:hover { opacity: 0.9; }
+
+        /* Connection Status */
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #28a745;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            z-index: 1000;
+        }
+
+        .connection-status.connecting {
+            background: #ff9500;
+        }
+
+        .connection-status.disconnected {
+            background: #dc3545;
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff4444;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(255, 68, 68, 0.3);
+            z-index: 1000;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Emergency Priority */
+        .priority-high { color: #ff4444; }
+        .priority-medium { color: #ff9500; }
+        .priority-low { color: #28a745; }
+
+        /* Live Location Tracking */
+        .live-location {
+            background: #2d3748;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .live-location.active {
+            border-left: 4px solid #28a745;
+        }
+
+        .location-update {
+            color: #28a745;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+        
+        /* Demo Controls */
+        .demo-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: #1a1f2e;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #2d3748;
+            z-index: 1000;
+        }
+        
+        .demo-controls h4 {
+            margin-bottom: 10px;
+            color: #28a745;
+        }
+        
+        .demo-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">🟢 Connected</div>
+    
+    <!-- Demo Controls -->
+    <div class="demo-controls">
+        <h4>Demo Controls</h4>
+        <button class="demo-btn" onclick="simulateEmergency('Medical Emergency', 'HIGH')">Simulate Medical Emergency</button>
+        <button class="demo-btn" onclick="simulateEmergency('Lost Tourist', 'MEDIUM')">Simulate Lost Tourist</button>
+        <button class="demo-btn" onclick="simulateEmergency('Security Issue', 'CRITICAL')">Simulate Security Issue</button>
+    </div>
+    
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="responder-info">
+                <div class="responder-avatar">👮</div>
+                <h3>Response Unit 01</h3>
+                <p>John Doe - Senior Responder</p>
+                <div style="color: #28a745; margin-top: 5px;">● ONLINE</div>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number stat-critical" id="totalEmergencies">0</div>
+                    <div>Total Emergencies</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-warning" id="pendingEmergencies">0</div>
+                    <div>Pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-success" id="assignedEmergencies">0</div>
+                    <div>Assigned</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="resolvedEmergencies">0</div>
+                    <div>Resolved</div>
+                </div>
+            </div>
+
+            <h3>🚨 Active Emergencies</h3>
+            <div class="emergency-list" id="emergencyList">
+                <div class="emergency-card">No active emergencies</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <h1>🚨 Emergency Response Dashboard</h1>
+                <div>Last updated: <span id="lastUpdated">Just now</span></div>
+            </div>
+
+            <div class="map-container">
+                <div id="responseMap"></div>
+            </div>
+        </div>
+
+        <!-- Emergency Details Panel -->
+        <div class="emergency-details" id="emergencyDetails">
+            <h3>Emergency Details</h3>
+            <div class="details-content" id="detailsContent">
+                <p>Select an emergency to view details</p>
+            </div>
+            
+            <div id="liveLocationContainer" style="display: none;">
+                <h4>📍 Live Tourist Location</h4>
+                <div class="live-location" id="liveLocation">
+                    <div>Tracking tourist location...</div>
+                    <div class="location-update" id="locationUpdateTime"></div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-success" onclick="assignToMe()">✅ Assign to Me</button>
+                <button class="btn btn-primary" onclick="navigateToEmergency()">🧭 Navigate to Location</button>
+                <button class="btn btn-warning" onclick="contactTourist()">📞 Contact Tourist</button>
+                <button class="btn btn-danger" onclick="resolveEmergency()">✅ Mark as Resolved</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Emergency data
+        let emergencies = [];
+        let responseMap;
+        let emergencyMarkers = [];
+        let touristMarkers = {};
+        let selectedEmergency = null;
+        let socket = null;
+        let touristLocationUpdates = {};
+        let emergencyIdCounter = 1;
+
+        // Initialize the dashboard
+        function initDashboard() {
+            initMap();
+            initWebSocket();
+            loadEmergencies();
+            updateLastUpdated();
+        }
+
+        // Initialize WebSocket connection
+        function initWebSocket() {
+            updateConnectionStatus('connecting', '🟡 Connecting to server...');
+            
+            // For demo purposes, we'll simulate WebSocket connection
+            // In production, replace with actual WebSocket server URL
+            simulateWebSocketConnection();
+        }
+
+        // Simulate WebSocket connection (replace with actual WebSocket in production)
+        function simulateWebSocketConnection() {
+            setTimeout(() => {
+                updateConnectionStatus('connected', '🟢 Connected - Receiving emergencies');
+                
+                // Listen for messages from tourist app (simulated)
+                window.addEventListener('storage', handleTouristMessage);
+                window.addEventListener('message', handleTouristMessage);
+                
+                // Also check localStorage periodically for new emergencies
+                setInterval(checkForNewEmergencies, 1000);
+                
+                // Check for URL parameters (for direct emergency creation)
+                checkUrlParameters();
+            }, 1500);
+        }
+
+        // Check URL parameters for emergency data
+        function checkUrlParameters() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const emergencyType = urlParams.get('emergency');
+            const touristId = urlParams.get('tourist');
+            const location = urlParams.get('location');
+            
+            if (emergencyType && touristId && location) {
+                const emergency = {
+                    id: emergencyIdCounter++,
+                    type: emergencyType,
+                    tourist_id: touristId,
+                    location: location,
+                    priority: urlParams.get('priority') || 'MEDIUM',
+                    status: 'PENDING',
+                    timestamp: new Date().toLocaleString()
+                };
+                
+                receiveEmergencyFromTourist(emergency);
+            }
+        }
+
+        // Handle messages from tourist app
+        function handleTouristMessage(event) {
+            // Handle postMessage events
+            if (event.data && event.data.type === 'EMERGENCY_ALERT') {
+                receiveEmergencyFromTourist(event.data.emergency);
+            }
+            
+            // Handle storage events (from localStorage)
+            if (event.key === 'emergency_alert') {
+                try {
+                    const emergency = JSON.parse(event.newValue);
+                    if (emergency && emergency.type) {
+                        receiveEmergencyFromTourist(emergency);
+                    }
+                } catch (e) {
+                    console.error('Error parsing emergency data:', e);
+                }
+            }
+        }
+
+        // Check localStorage for new emergencies
+        function checkForNewEmergencies() {
+            try {
+                const emergencyData = localStorage.getItem('emergency_alert');
+                if (emergencyData) {
+                    const emergency = JSON.parse(emergencyData);
+                    if (emergency && !emergencies.find(e => e.id === emergency.id)) {
+                        receiveEmergencyFromTourist(emergency);
+                        // Clear the stored emergency after processing
+                        localStorage.removeItem('emergency_alert');
+                    }
+                }
+            } catch (e) {
+                console.error('Error checking for emergencies:', e);
+            }
+        }
+
+        // Receive emergency from tourist app
+        function receiveEmergencyFromTourist(emergency) {
+            // Add unique ID if not present
+            if (!emergency.id) {
+                emergency.id = emergencyIdCounter++;
+            }
+            
+            // Ensure status is set
+            emergency.status = emergency.status || 'PENDING';
+            emergency.timestamp = emergency.timestamp || new Date().toLocaleString();
+            
+            // Check if this is a new emergency or location update
+            const existingIndex = emergencies.findIndex(e => e.tourist_id === emergency.tourist_id && e.status !== 'RESOLVED');
+            
+            if (existingIndex === -1) {
+                // New emergency
+                emergencies.unshift(emergency);
+                showNotification(`🚨 NEW EMERGENCY: ${emergency.type} from ${emergency.tourist_id}`);
+            } else {
+                // Update existing emergency with new location
+                emergencies[existingIndex].location = emergency.location;
+                emergencies[existingIndex].timestamp = emergency.timestamp;
+                
+                // Update tourist marker on map
+                updateTouristLocation(emergency.tourist_id, emergency.location);
+            }
+            
+            updateEmergencyList();
+            updateMapMarkers();
+            updateStats();
+            updateLastUpdated();
+            
+            // Auto-select the new/updated emergency
+            selectEmergency(emergency.id);
+        }
+
+        // Update tourist location on map
+        function updateTouristLocation(touristId, location) {
+            const [lat, lng] = location.split(',').map(coord => parseFloat(coord.trim()));
+            
+            if (touristMarkers[touristId]) {
+                // Update existing marker
+                touristMarkers[touristId].setLatLng([lat, lng]);
+            } else {
+                // Create new marker
+                touristMarkers[touristId] = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        html: '👤',
+                        iconSize: [25, 25],
+                        className: 'tourist-marker'
+                    })
+                }).addTo(responseMap)
+                .bindPopup(`Tourist: ${touristId}<br>Last update: ${new Date().toLocaleTimeString()}`);
+            }
+            
+            // Update location tracking time
+            touristLocationUpdates[touristId] = new Date();
+            
+            // If this tourist's emergency is selected, update the live location display
+            if (selectedEmergency && selectedEmergency.tourist_id === touristId) {
+                document.getElementById('locationUpdateTime').textContent = 
+                    `Last update: ${new Date().toLocaleTimeString()}`;
+            }
+        }
+
+        // Initialize map
+        function initMap() {
+            responseMap = L.map('responseMap').setView([11.166737, 76.966926], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(responseMap);
+        }
+
+        // Load emergencies (initial data)
+        function loadEmergencies() {
+            emergencies = [];
+            updateEmergencyList();
+            updateMapMarkers();
+            updateStats();
+        }
+
+        // Update emergency list in sidebar
+        function updateEmergencyList() {
+            const emergencyList = document.getElementById('emergencyList');
+            
+            if (emergencies.length === 0) {
+                emergencyList.innerHTML = '<div class="emergency-card">No active emergencies</div>';
+                return;
+            }
+
+            emergencyList.innerHTML = emergencies.map(emergency => `
+                <div class="emergency-card ${emergency.status.toLowerCase()}" 
+                     onclick="selectEmergency(${emergency.id})">
+                    <strong>${emergency.type}</strong>
+                    <div style="font-size: 0.9em; margin: 5px 0;">Tourist: ${emergency.tourist_id}</div>
+                    <div style="font-size: 0.8em; color: #ccc;">${emergency.timestamp}</div>
+                    <div style="font-size: 0.8em; color: ${getStatusColor(emergency.status)};">
+                        ● ${emergency.status}
+                    </div>
+                    ${emergency.assigned_to ? `<div style="font-size: 0.8em;">Assigned: ${emergency.assigned_to}</div>` : ''}
+                    <div style="font-size: 0.8em; color: #28a745; margin-top: 5px;">
+                        📍 Live tracking ${touristLocationUpdates[emergency.tourist_id] ? 'active' : 'pending'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Update map with emergency markers
+        function updateMapMarkers() {
+            // Clear existing emergency markers (keep tourist markers)
+            emergencyMarkers.forEach(marker => responseMap.removeLayer(marker));
+            emergencyMarkers = [];
+
+            // Add new emergency markers
+            emergencies.forEach(emergency => {
+                const [lat, lng] = emergency.location.split(',').map(coord => parseFloat(coord.trim()));
+                
+                const marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        html: getMarkerIcon(emergency),
+                        iconSize: [30, 30],
+                        className: 'emergency-marker'
+                    })
+                }).addTo(responseMap);
+
+                marker.bindPopup(`
+                    <strong>${emergency.type}</strong><br>
+                    Tourist: ${emergency.tourist_id}<br>
+                    Time: ${emergency.timestamp}<br>
+                    Status: ${emergency.status}<br>
+                    <button onclick="selectEmergency(${emergency.id})" style="margin-top: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                        View Details
+                    </button>
+                `);
+
+                emergencyMarkers.push(marker);
+            });
+        }
+
+        // Get marker icon based on emergency status
+        function getMarkerIcon(emergency) {
+            const icons = {
+                'PENDING': '🔴',
+                'ASSIGNED': '🟡', 
+                'RESOLVED': '🟢'
+            };
+            return `<div style="font-size: 24px;">${icons[emergency.status] || '🔴'}</div>`;
+        }
+
+        // Get status color
+        function getStatusColor(status) {
+            const colors = {
+                'PENDING': '#ff4444',
+                'ASSIGNED': '#ff9500',
+                'RESOLVED': '#28a745'
+            };
+            return colors[status] || '#ff4444';
+        }
+
+        // Get priority class
+        function getPriorityClass(priority) {
+            const classes = {
+                'LOW': 'priority-low',
+                'MEDIUM': 'priority-medium',
+                'HIGH': 'priority-high',
+                'CRITICAL': 'priority-high'
+            };
+            return classes[priority] || 'priority-medium';
+        }
+
+        // Update statistics
+        function updateStats() {
+            const total = emergencies.length;
+            const pending = emergencies.filter(e => e.status === 'PENDING').length;
+            const assigned = emergencies.filter(e => e.status === 'ASSIGNED').length;
+            const resolved = emergencies.filter(e => e.status === 'RESOLVED').length;
+
+            document.getElementById('totalEmergencies').textContent = total;
+            document.getElementById('pendingEmergencies').textContent = pending;
+            document.getElementById('assignedEmergencies').textContent = assigned;
+            document.getElementById('resolvedEmergencies').textContent = resolved;
+        }
+
+        // Select emergency for details
+        function selectEmergency(emergencyId) {
+            selectedEmergency = emergencies.find(e => e.id === emergencyId);
+            
+            if (selectedEmergency) {
+                document.getElementById('detailsContent').innerHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <strong>${selectedEmergency.type}</strong>
+                        <div style="color: ${getStatusColor(selectedEmergency.status)}; margin: 5px 0;">
+                            ● ${selectedEmergency.status}
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Tourist ID:</strong> ${selectedEmergency.tourist_id}
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Location:</strong> ${selectedEmergency.location}
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Time:</strong> ${selectedEmergency.timestamp}
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Priority:</strong> 
+                        <span class="${getPriorityClass(selectedEmergency.priority)}">
+                            ${selectedEmergency.priority || 'MEDIUM'}
+                        </span>
+                    </div>
+                    ${selectedEmergency.assigned_to ? `
+                        <div style="margin-bottom: 10px;">
+                            <strong>Assigned To:</strong> ${selectedEmergency.assigned_to}
+                        </div>
+                    ` : ''}
+                `;
+
+                // Show live location tracking
+                document.getElementById('liveLocationContainer').style.display = 'block';
+                const lastUpdate = touristLocationUpdates[selectedEmergency.tourist_id];
+                document.getElementById('locationUpdateTime').textContent = 
+                    lastUpdate ? `Last update: ${lastUpdate.toLocaleTimeString()}` : 'Waiting for location updates...';
+
+                // Center map on selected emergency
+                const [lat, lng] = selectedEmergency.location.split(',').map(coord => parseFloat(coord.trim()));
+                responseMap.setView([lat, lng], 15);
+            } else {
+                document.getElementById('liveLocationContainer').style.display = 'none';
+            }
+        }
+
+        // Action functions
+        function assignToMe() {
+            if (selectedEmergency) {
+                selectedEmergency.status = 'ASSIGNED';
+                selectedEmergency.assigned_to = 'Unit_01 (You)';
+                updateEmergencyList();
+                updateMapMarkers();
+                updateStats();
+                showNotification('✅ Emergency assigned to you!');
+                
+                // Send update to tourist (simulated)
+                sendUpdateToTourist(selectedEmergency.tourist_id, 'ASSIGNED', 'Unit_01');
+            }
+        }
+
+        function navigateToEmergency() {
+            if (selectedEmergency) {
+                const [lat, lng] = selectedEmergency.location.split(',').map(coord => parseFloat(coord.trim()));
+                window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+            }
+        }
+
+        function contactTourist() {
+            if (selectedEmergency) {
+                showNotification('📞 Opening communication channel with tourist...');
+                // Simulate calling/chatting
+                setTimeout(() => {
+                    alert(`Connected to ${selectedEmergency.tourist_id}. Audio channel established.`);
+                }, 1000);
+            }
+        }
+
+        function resolveEmergency() {
+            if (selectedEmergency) {
+                selectedEmergency.status = 'RESOLVED';
+                updateEmergencyList();
+                updateMapMarkers();
+                updateStats();
+                showNotification('✅ Emergency marked as resolved!');
+                
+                // Send update to tourist (simulated)
+                sendUpdateToTourist(selectedEmergency.tourist_id, 'RESOLVED');
+                
+                // Remove tourist marker
+                if (touristMarkers[selectedEmergency.tourist_id]) {
+                    responseMap.removeLayer(touristMarkers[selectedEmergency.tourist_id]);
+                    delete touristMarkers[selectedEmergency.tourist_id];
+                }
+            }
+        }
+
+        // Send update to tourist (simulated)
+        function sendUpdateToTourist(touristId, status, responder = null) {
+            // In a real app, this would send a message back to the tourist
+            console.log(`Sending update to ${touristId}: Status=${status}, Responder=${responder}`);
+            
+            // Simulate sending via localStorage (for demo purposes)
+            const update = {
+                tourist_id: touristId,
+                status: status,
+                responder: responder,
+                timestamp: new Date().toISOString()
+            };
+            
+            localStorage.setItem(`responder_update_${touristId}`, JSON.stringify(update));
+        }
+
+        // Show notification
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Update last updated time
+        function updateLastUpdated() {
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = now.toLocaleTimeString();
+        }
+
+        // Update connection status
+        function updateConnectionStatus(status, message) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.textContent = message;
+            statusElement.className = 'connection-status ' + status;
+        }
+
+        // Simulate receiving location updates (for demo)
+        function simulateLocationUpdates() {
+            setInterval(() => {
+                if (emergencies.length > 0 && Math.random() > 0.7) {
+                    const emergency = emergencies[Math.floor(Math.random() * emergencies.length)];
+                    if (emergency.status !== 'RESOLVED') {
+                        // Simulate small location change
+                        const [lat, lng] = emergency.location.split(',').map(coord => parseFloat(coord.trim()));
+                        const newLat = lat + (Math.random() - 0.5) * 0.001;
+                        const newLng = lng + (Math.random() - 0.5) * 0.001;
+                        
+                        const locationUpdate = {
+                            tourist_id: emergency.tourist_id,
+                            location: `${newLat.toFixed(6)}, ${newLng.toFixed(6)}`,
+                            timestamp: new Date().toLocaleString(),
+                            type: 'LOCATION_UPDATE'
+                        };
+                        
+                        receiveEmergencyFromTourist(locationUpdate);
+                    }
+                }
+            }, 5000);
+        }
+        
+        // Simulate emergency for demo purposes
+        function simulateEmergency(type, priority) {
+            const locations = [
+                "11.166737, 76.966926", // Ooty center
+                "11.410515, 76.695030", // Coonoor
+                "11.375672, 76.794220", // Kotagiri
+                "11.402350, 76.741190"  // Wellington
+            ];
+            
+            const tourists = [
+                "Tourist_001",
+                "Tourist_002", 
+                "Tourist_003",
+                "Tourist_004"
+            ];
+            
+            const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+            const randomTourist = tourists[Math.floor(Math.random() * tourists.length)];
+            
+            const emergency = {
+                id: emergencyIdCounter++,
+                type: type,
+                tourist_id: randomTourist,
+                location: randomLocation,
+                priority: priority,
+                status: 'PENDING',
+                timestamp: new Date().toLocaleString()
+            };
+            
+            receiveEmergencyFromTourist(emergency);
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initDashboard();
+            simulateLocationUpdates(); // Start demo location updates
+        });
+    </script>
+</body>
+</html>

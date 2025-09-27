@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tourist Safety App - Emergency Response System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #ff4444;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .map-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        #map {
+            height: 400px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+
+        .sos-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .sos-title {
+            color: #ff4444;
+            font-size: 1.8em;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .sos-button {
+            background: linear-gradient(45deg, #ff4444, #ff6b6b);
+            color: white;
+            border: none;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin: 10px 0;
+            width: 100%;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .sos-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .status-panel {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .status-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .history-panel {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .emergency-item {
+            background: #fff5f5;
+            border-left: 4px solid #ff4444;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .location-status {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .location-updating {
+            color: #007bff;
+            border-left: 4px solid #007bff;
+        }
+
+        .location-success {
+            color: #28a745;
+            border-left: 4px solid #28a745;
+        }
+
+        .location-error {
+            color: #dc3545;
+            border-left: 4px solid #dc3545;
+        }
+
+        .location-warning {
+            color: #ff9500;
+            border-left: 4px solid #ff9500;
+        }
+
+        .permission-help {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .permission-help h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .permission-help ul {
+            text-align: left;
+            margin-left: 20px;
+        }
+
+        .permission-help li {
+            margin-bottom: 8px;
+            color: #856404;
+        }
+
+        .test-location-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Tourist Safety Emergency System</h1>
+            <p>Your safety is our priority - 24/7 Emergency Response</p>
+        </div>
+
+        <div class="map-section">
+            <h2>📍 Live Location Tracking</h2>
+            <div id="map"></div>
+            <div class="location-status" id="locationStatus">
+                <p id="locationText">Click below to get your current location</p>
+                <p id="locationCoordinates"></p>
+                <p id="locationAccuracy"></p>
+            </div>
+            <button onclick="getLocation()" class="sos-button" style="background: #007bff; margin-top: 15px;">
+                🔄 Update My Location
+            </button>
+            
+            <div class="permission-help" id="permissionHelp">
+                <h4>🔧 Location Access Help</h4>
+                <p>To enable location access:</p>
+                <ul>
+                    <li><strong>Chrome/Edge:</strong> Click the lock icon in address bar → Site settings → Allow Location</li>
+                    <li><strong>Firefox:</strong> Click the lock icon → More Information → Permissions → Allow Location Access</li>
+                    <li><strong>Safari:</strong> Safari → Preferences → Websites → Location → Allow for this website</li>
+                    <li><strong>Mobile:</strong> Check app permissions in Settings → Location Services</li>
+                </ul>
+                <button class="test-location-btn" onclick="testLocation()">Test Location Again</button>
+            </div>
+        </div>
+
+        <div class="sos-panel">
+            <h2 class="sos-title">🚨 EMERGENCY SOS</h2>
+            <button class="sos-button" onclick="sendSOS('VOICE_EMERGENCY')">🎤 VOICE SOS COMMAND</button>
+            <button class="sos-button" onclick="sendSOS('ONLINE_EMERGENCY')">🌐 ONLINE EMERGENCY MODE</button>
+            <button class="sos-button" onclick="sendSOS('MEDICAL_ASSISTANCE')">🏥 MEDICAL ASSISTANCE</button>
+            <button class="sos-button" onclick="sendSOS('POLICE_ASSISTANCE')">👮 POLICE ASSISTANCE</button>
+            
+            <div style="margin-top: 20px; text-align: center;">
+                <p id="connectionStatus" style="font-size: 0.9em; color: #666;"></p>
+                <p id="sosWarning" style="color: #dc3545; font-weight: bold; display: none;">
+                    ⚠️ Please enable location access before sending SOS
+                </p>
+            </div>
+        </div>
+
+        <div class="status-panel">
+            <h2>📊 Safety Status</h2>
+            <div class="status-grid">
+                <div class="status-card">
+                    <div class="status-value" id="safetyScore">85</div>
+                    <div class="status-label">AI Safety Score</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-value" style="color: green;">LOW</div>
+                    <div class="status-label">Risk Level</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-value" id="responseTime">2.3s</div>
+                    <div class="status-label">Avg Response Time</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-value" id="activeResponders">12</div>
+                    <div class="status-label">Active Responders</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="history-panel">
+            <h2>📋 Recent Emergency Alerts</h2>
+            <div id="emergencyHistory">
+                <div class="emergency-item">No recent emergencies. Your safety status is monitored 24/7.</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map, userMarker;
+        let userLocation = null;
+        let emergencies = [];
+        let watchId = null;
+        let locationAccessGranted = false;
+
+        function initMap() {
+            // Start with a default location
+            const defaultLocation = { lat: 11.166737, lng: 76.966926 };
+            
+            map = L.map('map').setView([defaultLocation.lat, defaultLocation.lng], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            
+            userMarker = L.marker([defaultLocation.lat, defaultLocation.lng])
+                .addTo(map)
+                .bindPopup('Default location - Please enable location access')
+                .openPopup();
+                
+            updateLocationStatus('warning', 'Location access required. Click "Update My Location" to enable.');
+        }
+
+        function getLocation() {
+            updateLocationStatus('updating', 'Requesting location access...');
+            document.getElementById('permissionHelp').style.display = 'none';
+            
+            if (!navigator.geolocation) {
+                updateLocationStatus('error', 'Geolocation is not supported by this browser.');
+                showPermissionHelp();
+                return;
+            }
+
+            // Request location with high accuracy
+            navigator.geolocation.getCurrentPosition(
+                handleLocationSuccess,
+                handleLocationError,
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000, // 15 seconds timeout
+                    maximumAge: 0 // Don't use cached position
+                }
+            );
+        }
+
+        function handleLocationSuccess(position) {
+            locationAccessGranted = true;
+            userLocation = { 
+                lat: position.coords.latitude, 
+                lng: position.coords.longitude 
+            };
+            
+            // Update map
+            map.setView([userLocation.lat, userLocation.lng], 15);
+            userMarker.setLatLng([userLocation.lat, userLocation.lng])
+                     .setPopupContent('Your current location')
+                     .openPopup();
+            
+            // Update display
+            const accuracy = position.coords.accuracy ? ` (Accuracy: ${position.coords.accuracy.toFixed(1)}m)` : '';
+            updateLocationStatus('success', `📍 Location access granted${accuracy}`);
+            document.getElementById('locationCoordinates').textContent = 
+                `Latitude: ${userLocation.lat.toFixed(6)}, Longitude: ${userLocation.lng.toFixed(6)}`;
+            
+            if (position.coords.accuracy) {
+                document.getElementById('locationAccuracy').textContent = 
+                    `Accuracy: ±${position.coords.accuracy.toFixed(1)} meters`;
+            }
+            
+            // Hide SOS warning
+            document.getElementById('sosWarning').style.display = 'none';
+            
+            // Start watching position for continuous updates
+            startWatchingLocation();
+        }
+
+        function handleLocationError(error) {
+            locationAccessGranted = false;
+            let errorMessage = 'Unknown error occurred';
+            
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = 'Location access denied. Please enable location permissions.';
+                    showPermissionHelp();
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = 'Location information unavailable. Please check your connection.';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = 'Location request timed out. Please try again.';
+                    break;
+            }
+            
+            updateLocationStatus('error', errorMessage);
+            document.getElementById('sosWarning').style.display = 'block';
+        }
+
+        function startWatchingLocation() {
+            // Stop any existing watch
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+            
+            // Watch for position changes
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    userLocation = { 
+                        lat: position.coords.latitude, 
+                        lng: position.coords.longitude 
+                    };
+                    userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+                    
+                    // Update accuracy if available
+                    if (position.coords.accuracy) {
+                        document.getElementById('locationAccuracy').textContent = 
+                            `Accuracy: ±${position.coords.accuracy.toFixed(1)} meters`;
+                    }
+                },
+                (error) => {
+                    console.warn('Location watch error:', error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 30000 // Accept positions up to 30 seconds old
+                }
+            );
+        }
+	
+
+        function showPermissionHelp() {
+            document.getElementById('permissionHelp').style.display = 'block';
+        }
+
+        function testLocation() {
+            getLocation();
+        }
+
+        function updateLocationStatus(status, message) {
+            const statusElement = document.getElementById('locationStatus');
+            const textElement = document.getElementById('locationText');
+            
+            // Remove all status classes
+            statusElement.classList.remove('location-updating', 'location-success', 'location-error', 'location-warning');
+            
+            // Add current status class
+            statusElement.classList.add(`location-${status}`);
+            
+            // Update message
+            textElement.textContent = message;
+        }
+
+        function sendSOS(type) {
+            if (!locationAccessGranted || !userLocation) {
+                alert('⚠️ Please enable location access first!\n\nClick "Update My Location" and allow location permissions to send an SOS.');
+                getLocation();
+                return;
+            }
+
+            const emergencyTypes = {
+                'VOICE_EMERGENCY': 'Voice Emergency', 
+                'ONLINE_EMERGENCY': 'Online Emergency', 
+                'MEDICAL_ASSISTANCE': 'Medical Assistance', 
+                'POLICE_ASSISTANCE': 'Police Assistance'
+            };
+
+            const emergency = {
+                id: Date.now(), 
+                type: emergencyTypes[type],
+                location: `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`,
+                timestamp: new Date().toLocaleString(), 
+                status: 'PENDING'
+            };
+
+            emergencies.unshift(emergency);
+            updateEmergencyHistory();
+
+            // Show confirmation
+            alert(`🚨 EMERGENCY ALERT SENT!\n\nType: ${emergency.type}\nLocation: ${emergency.location}\n\nHelp is on the way!`);
+
+            document.getElementById('connectionStatus').innerHTML = '📡 Sending to emergency server...';
+            
+            // Simulate sending to server
+            setTimeout(() => {
+                document.getElementById('connectionStatus').innerHTML = '✅ Emergency received by control room!';
+                
+                // Simulate responder assignment
+                setTimeout(() => {
+                    emergency.status = 'ASSIGNED';
+                    emergency.responder = 'Responder_Unit_01';
+                    updateEmergencyHistory();
+                }, 2000);
+            }, 1000);
+        }
+
+        function updateEmergencyHistory() {
+            const historyContainer = document.getElementById('emergencyHistory');
+            if (emergencies.length === 0) {
+                historyContainer.innerHTML = '<div class="emergency-item">No recent emergencies. Your safety status is monitored 24/7.</div>';
+                return;
+            }
+            
+            historyContainer.innerHTML = emergencies.map(emergency => `
+                <div class="emergency-item">
+                    <strong>${emergency.type}</strong><br>
+                    <small>Location: ${emergency.location} | Time: ${emergency.timestamp}</small><br>
+                    <small>Status: <span style="color: ${emergency.status === 'PENDING' ? 'orange' : 'green'}">${emergency.status}</span></small>
+                    ${emergency.responder ? `<br><small>Responder: ${emergency.responder}</small>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Initialize the app when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            
+            // Try to get location automatically when page loads
+            setTimeout(() => {
+                getLocation();
+            }, 1000);
+            
+            // Simulate dynamic updates to safety metrics
+            setInterval(() => {
+                document.getElementById('responseTime').textContent = (1.5 + Math.random() * 2).toFixed(1) + 's';
+                document.getElementById('activeResponders').textContent = Math.floor(10 + Math.random() * 5);
+            }, 5000);
+        });
+
+        // Add event listener for page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && locationAccessGranted) {
+                // Page became visible, refresh location
+                getLocation();
+            }
+        });
+    </script>
+</body>
+</html>
